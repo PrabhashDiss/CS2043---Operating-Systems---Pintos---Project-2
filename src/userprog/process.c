@@ -38,11 +38,23 @@ process_execute (const char *file_name)
     return TID_ERROR;
   strlcpy (fn_copy, file_name, PGSIZE);
 
+  /* Split fn_copy
+     // filename for file name
+     // save_ptr for other arguments  */
+  char *filename, *save_ptr;
+  filename = strtok_r(fn_copy, " ", &save_ptr);
+
   /* Create a new thread to execute FILE_NAME. */
-  tid = thread_create (file_name, PRI_DEFAULT, start_process, fn_copy);
+  tid = thread_create (filename, PRI_DEFAULT, start_process, save_ptr);
+
+  /* The parent process should wait until it knows
+     whether the child process successfully loaded its executable. */
+  sema_down(&thread_current()->wait_semaphore);
+
   if (tid == TID_ERROR)
     palloc_free_page (fn_copy); 
-  return tid;
+
+  return thread_current()->child_load_status;
 }
 
 /* A thread function that loads a user process and starts it
@@ -62,9 +74,23 @@ start_process (void *file_name_)
   success = load (file_name, &if_.eip, &if_.esp);
 
   /* If load failed, quit. */
-  palloc_free_page (file_name);
+  palloc_free_page (pg_round_down(file_name));
   if (!success) 
+  {
+    if (thread_current()->parent != NULL)
+      thread_current()->parent->child_load_status = -1;   /* set the child_load_status -1 */
     thread_exit ();
+  }
+
+  /* If loading succeed, its parent ends waiting,
+     and the child thread starts waiting for its parent. */
+  sema_up(&thread_current()->parent->wait_semaphore);
+  sema_down(&thread_current()->wait_semaphore);
+
+  /* Open the file with the given name and prevent it from being modified
+     while it is being modified by the current thread. */
+  thread_current()->file = filesys_open (thread_name());
+  file_deny_write(thread_current()->file);
 
   /* Start the user process by simulating a return from an
      interrupt, implemented by intr_exit (in
@@ -86,9 +112,33 @@ start_process (void *file_name_)
    This function will be implemented in problem 2-2.  For now, it
    does nothing. */
 int
-process_wait (tid_t child_tid UNUSED) 
+process_wait (tid_t child_tid) 
 {
-  return -1;
+  int status = -1;
+  struct list_elem *e;
+  struct thread *cur = thread_current();
+
+  /* child_tid should be its direct child.*/
+  struct thread *child = NULL;
+  for (e = list_begin (&cur->children); e != list_end (&cur->children);
+     e = list_next (e))
+  {
+    struct thread *tmp = list_entry (e, struct thread, child_elem);
+    if (tmp->tid == child_tid)
+    {
+      child = tmp;
+      break;
+    }
+  }
+
+  /* If process child_tid is its child, let it wait for its child. */
+  if (child != NULL) {
+    sema_up(&child->wait_semaphore);
+    sema_down(&cur->wait_semaphore);
+    status = cur->child_exit_status;
+  }
+
+  return status;
 }
 
 /* Free the current process's resources. */
@@ -96,6 +146,27 @@ void
 process_exit (void)
 {
   struct thread *cur = thread_current ();
+
+  /* Deal with its parent --
+     If the current thread has a parent that is still waiting for it to finish,
+     Remove itself from the list of children of its parent and
+     Stop the parent that is still waiting. */
+  if (cur->parent != NULL)
+  {
+    list_remove(&cur->child_elem);
+    sema_up(&cur->parent->wait_semaphore);
+  }
+
+  /* Deal with its chidren --
+     Stop any children of the current thread that are still waiting. */
+  struct list_elem *e;
+  for (e = list_begin (&cur->children); e != list_end (&cur->children);
+     e = list_next (e))
+  {
+    struct thread *tmp = list_entry (e, struct thread, child_elem);
+    sema_up(&tmp->wait_semaphore);
+  }
+
   uint32_t *pd;
 
   /* Destroy the current process's page directory and switch back
@@ -195,7 +266,7 @@ struct Elf32_Phdr
 #define PF_W 2          /* Writable. */
 #define PF_R 4          /* Readable. */
 
-static bool setup_stack (void **esp);
+static bool setup_stack (void **esp, const char *args);
 static bool validate_segment (const struct Elf32_Phdr *, struct file *);
 static bool load_segment (struct file *file, off_t ofs, uint8_t *upage,
                           uint32_t read_bytes, uint32_t zero_bytes,
@@ -206,7 +277,7 @@ static bool load_segment (struct file *file, off_t ofs, uint8_t *upage,
    and its initial stack pointer into *ESP.
    Returns true if successful, false otherwise. */
 bool
-load (const char *file_name, void (**eip) (void), void **esp) 
+load (const char *args, void (**eip) (void), void **esp) 
 {
   struct thread *t = thread_current ();
   struct Elf32_Ehdr ehdr;
@@ -222,6 +293,7 @@ load (const char *file_name, void (**eip) (void), void **esp)
   process_activate ();
 
   /* Open executable file. */
+  const char *file_name = thread_name();
   file = filesys_open (file_name);
   if (file == NULL) 
     {
@@ -302,7 +374,7 @@ load (const char *file_name, void (**eip) (void), void **esp)
     }
 
   /* Set up stack. */
-  if (!setup_stack (esp))
+  if (!setup_stack (esp, args))
     goto done;
 
   /* Start address. */
@@ -424,10 +496,98 @@ load_segment (struct file *file, off_t ofs, uint8_t *upage,
   return true;
 }
 
+/* Used for inserting argument address into list. */
+struct argument_addr
+{
+  struct list_elem list_elem;
+  uint32_t addr;
+};
+
+/* Function to push one arugment into the stack and
+   Push its address into the list.  */
+void
+push_argument(void **esp, const char *arg, struct list *list)
+{
+  int len = strlen(arg) + 1;
+
+  *esp -= len;
+
+  struct argument_addr *addr = malloc(sizeof(struct argument_addr));
+  memcpy(*esp, arg, len);
+
+  addr->addr = *esp;
+  list_push_back(list, &addr->list_elem);
+}
+
+/* Function to push all arguments into the stack for a new process.
+   Arrangement of stack:
+    |  0          | <-- stack pointer
+    |  argc       |
+    |  argv       |
+    |  argv[0]    |
+    |  argv[1]    |
+    |  argv[2]    |
+    |  null       | <-- sentinel
+    |  argument2  |
+    |  argument1  |
+    |  argument0  | <-- filename */
+void
+push_arguments(void **esp, const char *args)
+{
+  struct list list;
+  list_init (&list);
+
+  *esp = PHYS_BASE;
+  uint32_t arg_num = 1;
+
+  /* Push filename into stack. */
+  const char *arg = thread_name();
+  push_argument(esp, arg, &list);
+
+  /* Push other arguments into stack. */
+  char *token, *save_ptr;
+  for (token = strtok_r(args, " ", &save_ptr);
+    token != NULL;
+    token = strtok_r(NULL, " ", &save_ptr))
+  {
+    arg_num += 1;
+    push_argument(esp, token, &list);
+  }
+
+  /* Set alignment. */
+  int total = PHYS_BASE - *esp;
+  *esp = *esp - (4 - total % 4);
+
+  /* Push a null pointer sentinel. */
+  *esp -= 4;
+  * (uint32_t *) *esp = (uint32_t) NULL;
+
+  /* Push all the addresses of arguments into stack.
+     The addresses are popped out from list. */
+  while (!list_empty(&list)) {
+    struct argument_addr *addr = 
+      list_entry(list_pop_back(&list), struct argument_addr, list_elem);
+    *esp -= 4;
+    * (uint32_t *) *esp = addr->addr;
+  }
+
+  /* Push argv -- the first argument address. */
+  *esp -= 4;
+  * (uint32_t *) *esp = (uint32_t *)(*esp + 4);
+
+  /* Push argc -- the total number of arguments. */
+  *esp -= 4;
+  * (uint32_t *) *esp = arg_num;
+
+  /* Push 0 as a fake return address. */
+  *esp -= 4;
+  * (uint32_t *) *esp = 0x0;
+}
+
 /* Create a minimal stack by mapping a zeroed page at the top of
    user virtual memory. */
 static bool
-setup_stack (void **esp) 
+setup_stack (void **esp, const char *args) 
 {
   uint8_t *kpage;
   bool success = false;
@@ -437,7 +597,7 @@ setup_stack (void **esp)
     {
       success = install_page (((uint8_t *) PHYS_BASE) - PGSIZE, kpage, true);
       if (success)
-        *esp = PHYS_BASE;
+        push_arguments(esp, args);
       else
         palloc_free_page (kpage);
     }

@@ -201,6 +201,10 @@ thread_create (const char *name, int priority,
   /* Add to run queue. */
   thread_unblock (t);
 
+  t->parent = thread_current();
+  list_push_back(&thread_current()->children, &t->child_elem);
+  thread_current()->child_load_status = tid;
+
   return tid;
 }
 
@@ -467,6 +471,10 @@ init_thread (struct thread *t, const char *name, int priority)
   old_level = intr_disable ();
   list_push_back (&all_list, &t->allelem);
   intr_set_level (old_level);
+
+  list_init(&t->children);
+  sema_init(&t->wait_semaphore, 0);
+  list_init(&t->fds);
 }
 
 /* Allocates a SIZE-byte frame at the top of thread T's stack and

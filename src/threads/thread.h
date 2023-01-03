@@ -4,6 +4,7 @@
 #include <debug.h>
 #include <list.h>
 #include <stdint.h>
+#include "threads/synch.h"
 
 /* States in a thread's life cycle. */
 enum thread_status
@@ -96,6 +97,14 @@ struct thread
 #ifdef USERPROG
     /* Owned by userprog/process.c. */
     uint32_t *pagedir;                  /* Page directory. */
+    struct thread *parent;              /* Thread that created this one. */
+    struct list children;              /* List of threads that this one creates. */
+    struct list_elem child_elem;        /* List element for list children. */
+    struct semaphore wait_semaphore;      /* Determine whether thread should wait. */
+    int child_load_status;              /* Load status of its child*/
+    int child_exit_status;              /* Exit status of its child */
+    struct file *file;     /* Executable file of this thread. */
+    struct list fds;      /* List of file descriptors opened by this thread. */
 #endif
 
     /* Owned by thread.c. */

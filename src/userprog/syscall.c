@@ -48,6 +48,8 @@ syscall_init (void)
 static void
 syscall_handler (struct intr_frame *f UNUSED) 
 {
+  //printf("syscall_handler\n");
+
   /* Pointers to the arguments of the system call. */
   uint32_t *esp = f->esp;
   uint32_t *argv0 = esp + 1;
@@ -115,6 +117,7 @@ syscall_handler (struct intr_frame *f UNUSED)
 bool
 is_valid_ptr(const void *ptr)
 {
+  //printf("is_valid_ptr\n");
   if (ptr == NULL 
     || !is_user_vaddr(ptr) 
     || pagedir_get_page(thread_current()->pagedir, ptr) == NULL)

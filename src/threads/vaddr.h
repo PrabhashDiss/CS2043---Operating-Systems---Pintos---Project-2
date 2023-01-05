@@ -56,6 +56,7 @@ static inline void *pg_round_down (const void *va) {
 static inline bool
 is_user_vaddr (const void *vaddr) 
 {
+  //printf("is_user_vddr\n");
   return vaddr < PHYS_BASE;
 }
 

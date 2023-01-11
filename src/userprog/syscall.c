@@ -282,17 +282,7 @@ create(const char *file, unsigned initial_size)
   /* Acquire the file system lock to prevent other threads from accessing the file system. */
   lock_acquire(&filesys_lock);
 
-  /* Create a new inode in the root directory with the specified initial size and
-     Add it to the directory. */
-  block_sector_t inode_sector = 0;
-  struct dir *dir = dir_open_root ();
-  bool success = (dir != NULL
-                  && free_map_allocate (1, &inode_sector)
-                  && inode_create (inode_sector, initial_size)
-                  && dir_add (dir, file, inode_sector));
-  if (!success && inode_sector != 0)
-    free_map_release (inode_sector, 1);
-  dir_close (dir);
+  bool success = filesys_create (file, initial_size);
 
   lock_release(&filesys_lock);    /* Release the file system lock. */
 

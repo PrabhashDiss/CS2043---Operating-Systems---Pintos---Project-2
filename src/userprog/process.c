@@ -522,16 +522,16 @@ push_argument(void **esp, const char *arg, struct list *list)
 
 /* Function to push all arguments into the stack for a new process.
    Arrangement of stack:
-    |  0          | <-- stack pointer
-    |  argc       |
-    |  argv       |
-    |  argv[0]    |
-    |  argv[1]    |
-    |  argv[2]    |
-    |  null       | <-- sentinel
-    |  argument2  |
+    |  argument0  | <-- filename
     |  argument1  |
-    |  argument0  | <-- filename */
+    |  argument2  |
+    |  null       | <-- sentinel
+    |  argv[2]    |
+    |  argv[1]    |
+    |  argv[0]    |
+    |  argv       |
+    |  argc       |
+    |  0          | <-- stack pointer */
 void
 push_arguments(void **esp, const char *args)
 {

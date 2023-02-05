@@ -560,28 +560,28 @@ push_arguments(void **esp, const char *args)
   *esp = *esp - (4 - total % 4);
 
   /* Push a null pointer sentinel. */
-  *esp -= 4;
-  * (uint32_t *) *esp = (uint32_t) NULL;
+  *esp -= sizeof(char *);
+  * (char *) *esp = (char) NULL;
 
   /* Push all the addresses of arguments into stack.
      The addresses are popped out from list. */
   while (!list_empty(&list)) {
     struct argument_addr *addr = 
       list_entry(list_pop_back(&list), struct argument_addr, list_elem);
-    *esp -= 4;
+    *esp -= sizeof(uint32_t *);
     * (uint32_t *) *esp = addr->addr;
   }
 
   /* Push argv -- the first argument address. */
-  *esp -= 4;
-  * (uint32_t *) *esp = (uint32_t *)(*esp + 4);
+  *esp -= sizeof(uint32_t *);
+  * (uint32_t *) *esp = (uint32_t *)(*esp + sizeof(uint32_t *));
 
   /* Push argc -- the total number of arguments. */
-  *esp -= 4;
+  *esp -= sizeof(uint32_t *);
   * (uint32_t *) *esp = arg_num;
 
   /* Push 0 as a fake return address. */
-  *esp -= 4;
+  *esp -= sizeof(uint32_t *);
   * (uint32_t *) *esp = 0x0;
 }
 

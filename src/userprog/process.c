@@ -512,12 +512,10 @@ void
 push_argument(void **esp, const char *arg, struct list *list)
 {
   int len = strlen(arg) + 1;
-
   *esp -= len;
-
-  struct argument_addr *addr = malloc(sizeof(struct argument_addr));
   memcpy(*esp, arg, len);
 
+  struct argument_addr *addr = malloc(sizeof(struct argument_addr));
   addr->addr = *esp;
   list_push_back(list, &addr->list_elem);
 }

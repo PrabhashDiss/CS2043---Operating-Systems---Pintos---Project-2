@@ -557,7 +557,9 @@ push_arguments(void **esp, const char *args)
 
   /* Set alignment. */
   int total = PHYS_BASE - *esp;
-  *esp = *esp - (4 - total % 4);
+  int align = 4 - (total % 4);
+  if (align != 4)
+    *esp = *esp - align;
 
   /* Push a null pointer sentinel. */
   *esp -= sizeof(char *);

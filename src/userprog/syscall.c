@@ -28,6 +28,8 @@ static void halt(void);
 void exit(int status);
 static pid_t exec(const char *cmd_line);
 static int wait(pid_t pid);
+int create_filedescriptor(struct file *file_struct, struct list *list);
+struct file *remove_filedescriptor(int fd, struct list *list);
 static bool create(const char *file, unsigned initial_size);
 static bool remove(const char *file);
 static int open(const char *file);
@@ -212,22 +214,9 @@ void
 close_openfile(int fd)
 {
   struct list *list = &thread_current()->fds;
-  for (struct list_elem *e = list_begin (list); 
-                          e != list_end (list); 
-                          e = list_next (e))
-  {
-    struct file_descriptor *f = 
-        list_entry(e, struct file_descriptor, fdelem);
-    if (f->fd == fd)
-    {
-      list_remove(e);
-      file_close(f->file);
-      free(f);
-      return;
-    }
-    else if (f->fd > fd)
-      return;
-  }
+  struct file *file = remove_filedescriptor(fd, list);
+  if (file != NULL)
+    file_close(file);
   return;
 }
 
@@ -315,6 +304,44 @@ cmp_fd(const struct list_elem *a, const struct list_elem *b, void *aux)
   return left->fd < right->fd;
 }
 
+/* Create a new file descriptor structure,
+   assign a unique file descriptor number,
+   associate it with the file structure and
+   insert it into the list of file descriptors in an ordered manner. */
+int
+create_filedescriptor(struct file *file_struct, struct list *list)
+{
+    struct file_descriptor *tmp = malloc(sizeof(struct file_descriptor));   /* Allocate memory for a new file descriptor structure. */
+    tmp->fd = assign_fd();    /* Assign a file descriptor number to the new file descriptor structure. */
+    tmp->file = file_struct;    /* Assign the file structure to the file descriptor structure. */
+    list_insert_ordered(list, &tmp->fdelem, (list_less_func *)cmp_fd, NULL);    /* Insert the new file descriptor structure into a list in an ordered manner. The list is sorted based on the comparison function cmp_fd. */
+    return tmp->fd;   /* Return the file descriptor number of the newly created file descriptor. */
+}
+
+/* Remove a file descriptor from the list of file descriptors and
+   free the memory allocated to the file descriptor.
+   Return the file associated with the file descriptor. */
+struct file *
+remove_filedescriptor(int fd, struct list *list)
+{
+    /* Find the file descriptor in the list of file descriptors. */
+    struct file *file = NULL;
+    for (struct list_elem *e = list_begin(list); e != list_end(list); e = list_next(e))
+    {
+      struct file_descriptor *f = list_entry(e, struct file_descriptor, fdelem);
+      if (f->fd == fd)
+      {
+        file = f->file;
+        list_remove(e);   /* Remove the file descriptor from the list of file descriptors. */
+        free(f);      /* Free the memory allocated to the file descriptor. */
+        break;
+      }
+      else if (f->fd > fd)
+        break;
+    }
+    return file;
+}
+
 /* Create a new file called *file that has intial_size size.
    Return true if successful, false otherwise. */
 static bool
@@ -361,13 +388,7 @@ open(const char *file)
   struct list *list = &thread_current()->fds;
   struct file *file_struct = filesys_open(file);
   if (file_struct != NULL)
-  {
-    struct file_descriptor *tmp = malloc(sizeof(struct file_descriptor));
-    tmp->fd = assign_fd();
-    tmp->file = file_struct;
-    fd = tmp->fd;
-    list_insert_ordered(list, &tmp->fdelem, (list_less_func *)cmp_fd, NULL);
-  }
+    fd = create_filedescriptor(file_struct, list);
   lock_release(&filesys_lock);
 
   return fd;

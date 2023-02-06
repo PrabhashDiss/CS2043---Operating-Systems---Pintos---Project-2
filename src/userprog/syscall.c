@@ -325,11 +325,8 @@ create(const char *file, unsigned initial_size)
   if (!is_valid_filename(file))   /* Check if the file name is valid. */
     return false;
 
-  /* Acquire the file system lock to prevent other threads from accessing the file system. */
-  lock_acquire(&filesys_lock);
-
+  lock_acquire(&filesys_lock);  /* Acquire the file system lock to prevent other threads from accessing the file system. */
   bool success = filesys_create (file, initial_size);
-
   lock_release(&filesys_lock);    /* Release the file system lock. */
 
   return success;

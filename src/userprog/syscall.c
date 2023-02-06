@@ -351,6 +351,37 @@ check_buffer(const void *buffer, unsigned size)
     exit(-1);
 }
 
+/* Read size bytes from the keyboard into buffer.
+   Return the number of bytes actually read. */
+static int
+read_from_keyboard(void *buffer, unsigned size)
+{
+  uint8_t *p = buffer;
+  uint8_t c;
+  unsigned counter = 0;
+
+  while (counter < size && (c = input_getc()) != 0)
+  {
+    *p = c;
+    p++;
+    counter++;
+  }
+  *p = 0;
+
+  return size - counter;
+}
+
+/* Read size bytes from the file identified by fd into buffer.
+   Return the number of bytes actually read. */
+static int
+read_from_file(int fd, void *buffer, unsigned size)
+{
+  struct file_descriptor *file_descriptor = get_openfile(fd);
+  if (file_descriptor != NULL)
+    return file_read(file_descriptor->file, buffer, size);
+  return -1;
+}
+
 /* Write to the console. */
 static int
 write_to_console(const void *buffer, unsigned size)
@@ -441,29 +472,13 @@ read(int fd, void *buffer, unsigned size)
 {
   int status = -1;
 
-  if (!is_valid_ptr(buffer) || !is_valid_ptr(buffer + size - 1))
-    exit(-1);
+  check_buffer(buffer, size);
 
   lock_acquire(&filesys_lock);
   if (fd == STDIN_FILENO) /* Fead from the keyboard.*/
-  {
-    uint8_t *p = buffer;
-    uint8_t c;
-    unsigned counter = 0;
-    while (counter < size && (c = input_getc()) != 0)
-    {
-      *p = c;
-      p++;
-      counter++;
-    }
-    *p = 0;
-    status = size - counter;
-  } else if (fd != STDOUT_FILENO)
-  {
-    struct file_descriptor *file_descriptor = get_openfile(fd);
-    if (file_descriptor != NULL)
-      status = file_read(file_descriptor->file, buffer, size);
-  }
+    status = read_from_keyboard(buffer, size);
+  else if (fd != STDOUT_FILENO) /* Read from the file identified by fd. */
+    status = read_from_file(fd, buffer, size);
   lock_release(&filesys_lock);
 
   return status;

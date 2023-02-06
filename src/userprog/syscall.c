@@ -194,18 +194,7 @@ struct file_descriptor *
 get_openfile(int fd)
 {
   struct list *list = get_filedescriptor_list();
-  for (struct list_elem *e = list_begin (list); 
-                          e != list_end (list); 
-                          e = list_next (e))
-  {
-    struct file_descriptor *f = 
-        list_entry(e, struct file_descriptor, fdelem);
-    if (f->fd == fd)
-      return f;
-    else if (f->fd > fd)
-      return NULL;
-  }
-  return NULL;
+  return get_filedescriptor(fd, list);
 }
 
 /* Close the open file of the given file descriptor.
@@ -354,18 +343,12 @@ remove_filedescriptor(int fd, struct list *list)
 {
     /* Find the file descriptor in the list of file descriptors. */
     struct file *file = NULL;
-    for (struct list_elem *e = list_begin(list); e != list_end(list); e = list_next(e))
+    struct file_descriptor *f = get_filedescriptor(fd, list);
+    if (f != NULL)
     {
-      struct file_descriptor *f = list_entry(e, struct file_descriptor, fdelem);
-      if (f->fd == fd)
-      {
-        file = f->file;
-        list_remove(e);   /* Remove the file descriptor from the list of file descriptors. */
-        free(f);      /* Free the memory allocated to the file descriptor. */
-        break;
-      }
-      else if (f->fd > fd)
-        break;
+      file = f->file;
+      list_remove(&f->fdelem);    /* Remove the file descriptor from the list of file descriptors. */
+      free(f);    /* Free the memory allocated to the file descriptor. */
     }
     return file;
 }

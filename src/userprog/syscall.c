@@ -65,46 +65,98 @@ syscall_handler (struct intr_frame *f UNUSED)
   switch (syscall_num)
   {
     case SYS_HALT:
+    {
       halt();
   		break;
+    }
     case SYS_EXIT:
+    {
+      if (!is_valid_ptr(argv0))
+        exit(-1);
       exit(*argv0);
       break;
+    }
     case SYS_EXEC:
+    {
+      if (!is_valid_ptr(argv0))
+        exit(-1);
       f->eax = exec((char *)*argv0);
   		break;
+    }
   	case SYS_WAIT:
+    {
+      if (!is_valid_ptr(argv0))
+        exit(-1);
       f->eax = wait(*argv0);
   		break;
+    }
   	case SYS_CREATE:
+    {
+      if (!is_valid_ptr(argv0) || !is_valid_ptr(argv1))
+        exit(-1);
       f->eax = create((char *)*argv0, *argv1);
   		break;
+    }
   	case SYS_REMOVE:
+    {
+      if (!is_valid_ptr(argv0))
+        exit(-1);
       f->eax = remove((char *)*argv0);
   		break;
+    }
   	case SYS_OPEN:
+    {
+      if (!is_valid_ptr(argv0))
+        exit(-1);
       f->eax = open((char *)*argv0);
   		break;
+    }
   	case SYS_FILESIZE:
+    {
+      if (!is_valid_ptr(argv0))
+        exit(-1);
       f->eax = filesize(*argv0);
   		break;
+    }
   	case SYS_READ:
+    {
+      if (!is_valid_ptr(argv1) || !is_valid_ptr(argv2))
+        exit(-1);
       f->eax = read(*argv0, (void *)*argv1, *argv2);
   		break;
+    }
   	case SYS_WRITE:
+    {
+      if (!is_valid_ptr(argv1) || !is_valid_ptr(argv2))
+        exit(-1);
   		f->eax = write(*argv0, (void *)*argv1, *argv2);
   		break;
+    }
     case SYS_SEEK:
+    {
+      if (!is_valid_ptr(argv0) || !is_valid_ptr(argv1))
+        exit(-1);
       seek(*argv0, *argv1);
   		break;
+    }
   	case SYS_TELL:
+    {
+      if (!is_valid_ptr(argv0))
+        exit(-1);
       f->eax = tell(*argv0);
   		break;
+    }
   	case SYS_CLOSE:
+    {
+      if (!is_valid_ptr(argv0))
+        exit(-1);
       close(*argv0);
   		break;
+    }
     default:
+    {
   		break;
+    }
   }
 }
 

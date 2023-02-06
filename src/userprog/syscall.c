@@ -193,7 +193,7 @@ is_valid_filename(const void *file)
 struct file_descriptor *
 get_openfile(int fd)
 {
-  struct list *list = &thread_current()->fds;
+  struct list *list = get_filedescriptor_list();
   for (struct list_elem *e = list_begin (list); 
                           e != list_end (list); 
                           e = list_next (e))
@@ -213,7 +213,7 @@ get_openfile(int fd)
 void
 close_openfile(int fd)
 {
-  struct list *list = &thread_current()->fds;
+  struct list *list = get_filedescriptor_list();
   struct file *file = remove_filedescriptor(fd, list);
   if (file != NULL)
     file_close(file);
@@ -283,7 +283,7 @@ wait(pid_t pid)
 int
 assign_fd()
 {
-  struct list *list = &thread_current()->fds;
+  struct list *list = get_filedescriptor_list();
   if (list_empty(list))
     return 2;
   else
@@ -468,7 +468,7 @@ open(const char *file)
     return fd;
 
   lock_acquire(&filesys_lock);
-  struct list *list = &thread_current()->fds;
+  struct list *list = get_filedescriptor_list();
   struct file *file_struct = filesys_open(file);
   if (file_struct != NULL)
     fd = create_filedescriptor(file_struct, list);

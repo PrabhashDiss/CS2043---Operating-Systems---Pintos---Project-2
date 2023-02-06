@@ -351,6 +351,21 @@ check_buffer(const void *buffer, unsigned size)
     exit(-1);
 }
 
+/* Write to the console. */
+static int
+write_to_console(const void *buffer, unsigned size)
+{
+  putbuf(buffer, size);
+  return size;
+}
+
+/* Write to a file. */
+static int
+write_to_file(struct file *file, const void *buffer, unsigned size)
+{
+  return file_write(file, buffer, size);
+}
+
 /* Create a new file called *file that has intial_size size.
    Return true if successful, false otherwise. */
 static bool
@@ -461,22 +476,17 @@ write(int fd, const void *buffer, unsigned size)
 {
   int status = 0;
 
-  /* Check if buffer is a valid memory region.
-     If not, exit the program with -1 status. */
-  if (buffer == NULL || !is_valid_ptr(buffer) || !is_valid_ptr(buffer + size - 1))
-    exit(-1);
+  check_buffer(buffer, size);
 
   lock_acquire(&filesys_lock);
 	if (fd == STDOUT_FILENO) /* Write to the console.*/
-	{
-		putbuf(buffer, size);
-		status = size;
-	} else if (fd != STDIN_FILENO)
+		status = write_to_console(buffer, size);
+	else if (fd != STDIN_FILENO) /* Write to a file. */
   {
     struct file_descriptor *file_descriptor = get_openfile(fd);
 
     if (file_descriptor != NULL)
-      status = file_write(file_descriptor->file, buffer, size);
+      status = write_to_file(file_descriptor->file, buffer, size);
   }
   lock_release(&filesys_lock);
 

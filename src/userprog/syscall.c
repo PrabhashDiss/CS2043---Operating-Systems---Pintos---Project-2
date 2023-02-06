@@ -256,9 +256,7 @@ exit(int status)
 
   /* Close all the files that have been opened. */
   while (!list_empty(&cur->fds))
-  {
     close(list_entry(list_begin(&cur->fds), struct file_descriptor, fdelem)->fd);
-  }
 
   /* Close the executable file. */
   file_close(cur->file);

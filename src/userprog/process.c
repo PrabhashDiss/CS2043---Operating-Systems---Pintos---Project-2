@@ -499,6 +499,114 @@ load_segment (struct file *file, off_t ofs, uint8_t *upage,
   return true;
 }
 
+/* Push the filename into the stack. */
+void
+push_filename(void **esp, struct list *list)
+{
+  const char *arg = thread_name();
+  push_argument(esp, arg, list);
+}
+
+/* Used for inserting argument address into list. */
+struct argument_addr
+{
+  struct list_elem list_elem;
+  uint32_t addr;
+};
+
+/* Function to push one arugment into the stack and
+   Push its address into the list.  */
+void
+push_argument(void **esp, const char *arg, struct list *list)
+{
+  int len = strlen(arg) + 1;
+  *esp -= len;
+  memcpy(*esp, arg, len);
+
+  struct argument_addr *addr = malloc(sizeof(struct argument_addr));
+  addr->addr = *esp;
+  list_push_back(list, &addr->list_elem);
+}
+
+/* Function to push all arguments into stack. */
+void
+push_arguments(char *args, struct list *list, uint32_t *arg_num, void *esp)
+{
+  char *token, *save_ptr;
+  for (token = strtok_r(args, " ", &save_ptr);
+    token != NULL;
+    token = strtok_r(NULL, " ", &save_ptr))
+  {
+    (*arg_num)++;
+    push_argument(esp, token, list);
+  }
+}
+
+/* Calculate and set the necessary alignment in the stack. */
+void
+set_alignment(void **esp)
+{
+  int total = PHYS_BASE - *esp;
+  int align = 4 - (total % 4);
+  if (align != 4)
+  {
+    *esp = *esp - align;
+    memset(*esp, 0, align);
+  }
+}
+
+/* Push the null pointer sentinel into stack. */
+void
+push_null_sentinel(void **esp)
+{
+  *esp -= sizeof(char *);
+  * (char *) *esp = (char) NULL;
+}
+
+/* Push a single argument address into stack. */
+void
+push_argument_address(void **esp, uint32_t *arg_addr)
+{
+  *esp -= sizeof(uint32_t *);
+  * (uint32_t *) *esp = arg_addr;
+}
+
+/* Push all argument addresses into stack. */
+void
+push_argument_addresses(void **esp, struct list *list)
+{
+  while (!list_empty(list))
+  {
+    struct argument_addr *addr = 
+      list_entry(list_pop_back(list), struct argument_addr, list_elem);
+    push_argument_address(esp, addr->addr);
+  }
+}
+
+/* Push the first argument address into stack. */
+void
+push_argv(void **esp)
+{
+  *esp -= sizeof(uint32_t *);
+  * (uint32_t *) *esp = (uint32_t *)(*esp + sizeof(uint32_t *));
+}
+
+/* Push the total number of arguments into stack. */
+void
+push_argc(void **esp, int arg_num)
+{
+  *esp -= sizeof(uint32_t *);
+  * (uint32_t *) *esp = arg_num;
+}
+
+/* Push a fake return address into stack. */
+void
+push_return_address(void **esp)
+{
+  *esp -= sizeof(uint32_t *);
+  * (uint32_t *) *esp = 0x0;
+}
+
 /* Function to prepare stack for a new process.
    Arrangement of stack:
     |  argument0  | <-- filename

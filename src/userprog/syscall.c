@@ -432,6 +432,7 @@ remove(const char *file)
     return false;
 
   bool status;
+
   lock_acquire(&filesys_lock);
   status = filesys_remove(file);
   lock_release(&filesys_lock);

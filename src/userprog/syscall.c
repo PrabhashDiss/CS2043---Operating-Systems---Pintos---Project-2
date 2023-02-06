@@ -205,8 +205,6 @@ get_openfile(int fd)
 }
 
 /* Close the open file of the given file descriptor.
-   Iterate through the list of open files in the current thread and
-   remove the file with the matching file descriptor.
    If the file descriptor is not found, return without doing anything. */
 void
 close_openfile(int fd)

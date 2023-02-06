@@ -122,14 +122,14 @@ syscall_handler (struct intr_frame *f UNUSED)
     }
   	case SYS_READ:
     {
-      if (!is_valid_ptr(argv1) || !is_valid_ptr(argv2))
+      if (!is_valid_ptr(argv0) || !is_valid_ptr(argv1) || !is_valid_ptr(argv2))
         exit(-1);
       f->eax = read(*argv0, (void *)*argv1, *argv2);
   		break;
     }
   	case SYS_WRITE:
     {
-      if (!is_valid_ptr(argv1) || !is_valid_ptr(argv2))
+      if (!is_valid_ptr(argv0) || !is_valid_ptr(argv1) || !is_valid_ptr(argv2))
         exit(-1);
   		f->eax = write(*argv0, (void *)*argv1, *argv2);
   		break;

@@ -368,7 +368,7 @@ read_from_keyboard(void *buffer, unsigned size)
   }
   *p = 0;
 
-  return size - counter;
+  return counter;
 }
 
 /* Read size bytes from the file identified by fd into buffer.

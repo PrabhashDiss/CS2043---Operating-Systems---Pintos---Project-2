@@ -276,9 +276,6 @@ exit(int status)
 static pid_t
 exec(const char *cmd_line)
 {
-  if (!is_valid_ptr(cmd_line))    /* Check if the cmd_line is a valid pointer in the user address space. */
-    exit(-1);
-
   lock_acquire(&filesys_lock);    /* Acquire the lock for the file system before executing the new process. */
   tid_t tid = process_execute(cmd_line);    /* Execute the new process and get its thread id(tid). */
   lock_release(&filesys_lock);    /* Release the lock for the file system after executing the new process. */

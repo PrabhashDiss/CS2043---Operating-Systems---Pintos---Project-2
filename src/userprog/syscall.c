@@ -170,11 +170,9 @@ bool
 is_valid_ptr(const void *ptr)
 {
   //printf("is_valid_ptr\n");
-  if (ptr == NULL 
-    || !is_user_vaddr(ptr) 
-    || pagedir_get_page(thread_current()->pagedir, ptr) == NULL)
-    return false;
-  return true;
+  return (ptr != NULL 
+    && is_user_vaddr(ptr) 
+    && pagedir_get_page(thread_current()->pagedir, ptr) != NULL);
 }
 
 /* Check whether *file is a valid filename. */

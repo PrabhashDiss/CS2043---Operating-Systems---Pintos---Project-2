@@ -28,6 +28,7 @@ static void halt(void);
 void exit(int status);
 static pid_t exec(const char *cmd_line);
 static int wait(pid_t pid);
+struct list *get_filedescriptor_list(void);
 int create_filedescriptor(struct file *file_struct, struct list *list);
 struct file *remove_filedescriptor(int fd, struct list *list);
 static bool create(const char *file, unsigned initial_size);
@@ -300,6 +301,13 @@ cmp_fd(const struct list_elem *a, const struct list_elem *b, void *aux)
   struct file_descriptor *left = list_entry(a, struct file_descriptor, fdelem);
   struct file_descriptor *right = list_entry(b, struct file_descriptor, fdelem);
   return left->fd < right->fd;
+}
+
+/* Get the file descriptor list of the current thread. */
+struct list *
+get_filedescriptor_list(void)
+{
+  return &thread_current()->fds;
 }
 
 /* Create a new file descriptor structure,

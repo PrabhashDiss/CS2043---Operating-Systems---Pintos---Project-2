@@ -233,8 +233,13 @@ exit(int status)
     cur->parent->child_exit_status = status;
 
   /* Close all the files that have been opened. */
-  while (!list_empty(&cur->fds))
-    close(list_entry(list_begin(&cur->fds), struct file_descriptor, fdelem)->fd);
+  struct list *list = get_filedescriptor_list();
+  while (!list_empty(list))
+  {
+    int fd = list_entry(list_begin(list), struct file_descriptor, fdelem)->fd;
+    struct file_descriptor *f = get_filedescriptor(fd, list);
+    close(f->fd);   /* Close the file associated with the file descriptor. */
+  }
 
   /* Close the executable file. */
   file_close(cur->file);

@@ -250,11 +250,9 @@ exit(int status)
   printf("%s: exit(%d)\n", cur->name, status);
 
   /* If its parent is still waiting for it,
-     inform its parent of its exit status. */
+     notify parent of exit status. */
   if (cur->parent != NULL)
-  {
     cur->parent->child_exit_status = status;
-  }
 
   /* Close all the files that have been opened. */
   while (!list_empty(&cur->fds))
@@ -265,6 +263,7 @@ exit(int status)
   /* Close the executable file. */
   file_close(cur->file);
 
+  /* Exit the thread. */
   thread_exit();
 }
 

@@ -29,6 +29,7 @@ void exit(int status);
 static pid_t exec(const char *cmd_line);
 static int wait(pid_t pid);
 struct list *get_filedescriptor_list(void);
+struct file_descriptor *get_filedescriptor(int fd, struct list *list)
 int create_filedescriptor(struct file *file_struct, struct list *list);
 struct file *remove_filedescriptor(int fd, struct list *list);
 static bool create(const char *file, unsigned initial_size);
@@ -308,6 +309,27 @@ struct list *
 get_filedescriptor_list(void)
 {
   return &thread_current()->fds;
+}
+
+/* Get the file descriptor from the list.
+   If the file descriptor is not found, return NULL. */
+struct file_descriptor *
+get_filedescriptor(int fd, struct list *list)
+{
+  struct file_descriptor *result = NULL;
+  for (struct list_elem *e = list_begin (list); e != list_end (list); e = list_next (e))
+  {
+    struct file_descriptor *f = 
+        list_entry(e, struct file_descriptor, fdelem);
+    if (f->fd == fd)
+    {
+      result = f;
+      break;
+    }
+    else if (f->fd > fd)
+      break;
+  }
+  return result;
 }
 
 /* Create a new file descriptor structure,

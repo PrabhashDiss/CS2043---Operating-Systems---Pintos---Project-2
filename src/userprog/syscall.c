@@ -57,10 +57,8 @@ syscall_handler (struct intr_frame *f UNUSED)
   uint32_t *argv2 = esp + 3;
 
   /* Check if the pointers are not valid. */
-  if (!is_valid_ptr(esp) || !is_valid_ptr(argv0) || !is_valid_ptr(argv1) || !is_valid_ptr(argv2))
-  {
-    exit(-1);   /* If any of the pointers are invalid, terminate the process with exit status -1. */
-  }
+  if (!is_valid_ptr(esp))
+    exit(-1);   /* If the pointer is invalid, terminate the process with exit status -1. */
 
   /* The system call number. */
   uint32_t syscall_num = *esp;

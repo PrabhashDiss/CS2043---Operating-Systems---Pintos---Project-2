@@ -499,28 +499,7 @@ load_segment (struct file *file, off_t ofs, uint8_t *upage,
   return true;
 }
 
-/* Used for inserting argument address into list. */
-struct argument_addr
-{
-  struct list_elem list_elem;
-  uint32_t addr;
-};
-
-/* Function to push one arugment into the stack and
-   Push its address into the list.  */
-void
-push_argument(void **esp, const char *arg, struct list *list)
-{
-  int len = strlen(arg) + 1;
-  *esp -= len;
-  memcpy(*esp, arg, len);
-
-  struct argument_addr *addr = malloc(sizeof(struct argument_addr));
-  addr->addr = *esp;
-  list_push_back(list, &addr->list_elem);
-}
-
-/* Function to push all arguments into the stack for a new process.
+/* Function to prepare stack for a new process.
    Arrangement of stack:
     |  argument0  | <-- filename
     |  argument1  |
@@ -533,7 +512,7 @@ push_argument(void **esp, const char *arg, struct list *list)
     |  argc       |
     |  0          | <-- stack pointer */
 void
-push_arguments(void **esp, const char *args)
+prepare_stack(void **esp, const char *args)
 {
   struct list list;
   list_init (&list);
@@ -541,53 +520,21 @@ push_arguments(void **esp, const char *args)
   *esp = PHYS_BASE;
   uint32_t arg_num = 1;
 
-  /* Push filename into stack. */
-  const char *arg = thread_name();
-  push_argument(esp, arg, &list);
+  push_filename(esp, &list);
 
-  /* Push other arguments into stack. */
-  char *token, *save_ptr;
-  for (token = strtok_r(args, " ", &save_ptr);
-    token != NULL;
-    token = strtok_r(NULL, " ", &save_ptr))
-  {
-    arg_num += 1;
-    push_argument(esp, token, &list);
-  }
+  push_arguments(args, &list, &arg_num, esp);
 
-  /* Set alignment. */
-  int total = PHYS_BASE - *esp;
-  int align = 4 - (total % 4);
-  if (align != 4)
-  {
-    *esp = *esp - align;
-    memset(*esp, 0, align);
-  }
+  set_alignment(esp);
 
-  /* Push a null pointer sentinel. */
-  *esp -= sizeof(char *);
-  * (char *) *esp = (char) NULL;
+  push_null_sentinel(esp);
 
-  /* Push all the addresses of arguments into stack.
-     The addresses are popped out from list. */
-  while (!list_empty(&list)) {
-    struct argument_addr *addr = 
-      list_entry(list_pop_back(&list), struct argument_addr, list_elem);
-    *esp -= sizeof(uint32_t *);
-    * (uint32_t *) *esp = addr->addr;
-  }
+  push_argument_addresses(esp, &list);
 
-  /* Push argv -- the first argument address. */
-  *esp -= sizeof(uint32_t *);
-  * (uint32_t *) *esp = (uint32_t *)(*esp + sizeof(uint32_t *));
+  push_argv(esp);
 
-  /* Push argc -- the total number of arguments. */
-  *esp -= sizeof(uint32_t *);
-  * (uint32_t *) *esp = arg_num;
+  push_argc(esp, arg_num);
 
-  /* Push 0 as a fake return address. */
-  *esp -= sizeof(uint32_t *);
-  * (uint32_t *) *esp = 0x0;
+  push_return_address(esp);
 }
 
 /* Create a minimal stack by mapping a zeroed page at the top of
@@ -603,7 +550,7 @@ setup_stack (void **esp, const char *args)
     {
       success = install_page (((uint8_t *) PHYS_BASE) - PGSIZE, kpage, true);
       if (success)
-        push_arguments(esp, args);
+        prepare_stack(esp, args);
       else
         palloc_free_page (kpage);
     }

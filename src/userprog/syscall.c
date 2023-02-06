@@ -342,6 +342,15 @@ remove_filedescriptor(int fd, struct list *list)
     return file;
 }
 
+/* Check if buffer is a valid memory region.
+   If not, exit the program with -1 status. */
+static void
+check_buffer(const void *buffer, unsigned size)
+{
+  if (buffer == NULL || !is_valid_ptr(buffer) || !is_valid_ptr(buffer + size - 1))
+    exit(-1);
+}
+
 /* Create a new file called *file that has intial_size size.
    Return true if successful, false otherwise. */
 static bool

@@ -186,6 +186,8 @@ is_valid_filename(const void *file)
   return len >= MIN_FILENAME && len <= MAX_FILENAME;
 }
 
+/* Get the open file of the given file descriptor.
+   If the file descriptor is not found, return NULL. */
 struct file_descriptor *
 get_openfile(int fd)
 {

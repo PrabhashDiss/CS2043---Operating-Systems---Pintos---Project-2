@@ -6,6 +6,7 @@
 #include "threads/thread.h"
 #include "userprog/syscall.h"
 #include "threads/vaddr.h"
+#include "userprog/process.h"
 
 /* Number of page faults processed. */
 static long long page_fault_cnt;
@@ -148,9 +149,7 @@ page_fault (struct intr_frame *f)
   if (!not_present)
     exit(-1);
 
-  if (fault_addr == NULL || !is_user_vaddr(fault_addr) 
-    || !pagedir_get_page(thread_current()->pagedir, fault_addr))
-    exit(-1);
+  is_valid_ptr(fault_addr);
 
   /* Determine cause. */
   not_present = (f->error_code & PF_P) == 0;
